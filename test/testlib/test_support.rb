@@ -1,8 +1,8 @@
 # Run a command line command, without intercepting stdout and stderr
 def run cmd
   print "--> ",cmd
-  res = system(cmd)  # don't use backticks for fab!
-  if res == nil
+  system(cmd) 
+  if $?.exitstatus != 0
     error "Command failed!"
   end
   res
