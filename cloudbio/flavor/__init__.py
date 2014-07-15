@@ -14,6 +14,7 @@ class Flavor:
     def __init__(self, env):
         self.name = "Base Flavor - no overrides" # should override this
         self.env = env
+        self.short_name = "flavor"
         self.check_distribution()
 
     def rewrite_config_items(self, name, items):
