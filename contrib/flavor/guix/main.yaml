@@ -9,4 +9,5 @@
 packages:
   - minimal
   - ruby
+  - guix
 libraries:

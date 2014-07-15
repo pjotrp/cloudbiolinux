@@ -89,6 +89,8 @@ galaxyp:
 system:
   - homebrew
   - s3fs
+guix:
+  - homebrew
 python:
   - bx-python
   - netsa-python
