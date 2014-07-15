@@ -1,7 +1,7 @@
 # Run a command line command, without intercepting stdout and stderr
 def run cmd
   print "--> ",cmd
-  system(cmd) 
+  res = system(cmd) 
   if $?.exitstatus != 0
     error "Command failed!"
   end
