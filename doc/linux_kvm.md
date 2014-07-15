@@ -62,7 +62,7 @@ that speed is not representative for an installed VM later (with -enable-kvm).
 
 With the base install, boot the new system
 
-      qemu-system-x86_64 -enable-kvm -redir tcp:2222::22 -hda hda.img
+      qemu-system-x86_64 -enable-kvm -redir tcp:2222::22 -hda hda.img -m 1024M
 
 and install ssh on the VM (it comes already on netinst)
 
