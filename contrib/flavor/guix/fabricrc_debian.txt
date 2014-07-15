@@ -1,0 +1,20 @@
+# Guix configuration file for Fabric specifying filesystem information
+#
+# This flavor pulls in GNU Guix support for CloudBiolinux.
+#
+# Run with
+#
+#   fab -H vagrant -f $source/fabfile.py -c $source/contrib/flavor/guix/fabricrc.txt install_biolinux:packagelist=$source/contrib/flavor/guix/main.yaml
+#
+# Maintainer: Pjotr Prins
+
+edition_version = 0.01
+distribution = __auto__
+dist_name = __auto__
+
+system_install = /usr/local
+local_install = /usr/local/share
+shell_config = ~/.bashrc
+shell = /bin/bash -i -c
+use_sudo = True
+is_ec2_image = false
