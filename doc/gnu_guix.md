@@ -5,7 +5,9 @@ allows for very robust dependency management.
 
 Note that the locale in the VM needs to be UTF8
 
-  export LC_ALL=en_US.UTF-8
+```sh
+export LC_ALL=en_US.UTF-8
+```
 
 ## Install GNU Guix
 
