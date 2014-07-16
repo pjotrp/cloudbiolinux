@@ -25,6 +25,7 @@ def _apt_packages(to_install=None, pkg_list=None):
     if env.flavor.short_name not in ["minimal"]:
         env.logger.info("Update the system")
         with settings(warn_only=True):
+            env.safe_sudo("dpkg --configure -a")
             env.safe_sudo("apt-get update")
     if to_install is not None:
         config_file = get_config_file(env, "packages.yaml")
