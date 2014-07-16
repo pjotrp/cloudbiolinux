@@ -44,17 +44,12 @@ Download a live installation image file. For example fetch a standard or network
 
 Next reserve space on the disk partition 
 
-      qemu-img create hda.img -opreallocation=metadata -ocluster_size=2M -f qcow2 4G
+      qemu-img create hda.img -f qcow2 10G
 
-(settings suggested by Red Hat) and fire up the VM
-
-      kvm debian-live-$(VER).img -hda hda.img -curses -no-reboot -serial pty
-
-The CloudBioLinux integration test system does something similar, starting from
-the smaller net install of Debian Linux:
+Starting from the smaller net install of Debian Linux:
 
       wget http://cdimage.debian.org/debian-cd/6.0.3/amd64/iso-cd/debian-6.0.3-amd64-netinst.iso
-      qemu-system-x86_64 -cdrom debian-6.0.3-amd64-netinst.iso -hda hda.img
+      qemu-system-x86_64 -enable-kvm -cdrom debian-6.0.3-amd64-netinst.iso -hda hda.img
 
 hit ESC and optionally type 'install fb=false' to disable the frame buffer.
 Fire up the installer. Note that the file system of the installer can be slow,
@@ -101,6 +96,8 @@ in fabric - is this still true?).
 
 # KVM tips
 
+## KVM
+
 KVM is nice and powerful. It is used in many Cloud service providers.
 
 For fast performance, it pays to install on a raw (LVM) partition,
@@ -109,3 +106,40 @@ Interesting goodies are the monitor (Crtl-Alt-2), virtsh, etc. See also
 [http://www.linux-kvm.org/page/FAQ][kvm tips].
 
 [kvm tips]: http://www.linux-kvm.org/page/FAQ
+
+## Resizing the image
+
+It is possible to resize the image after halting the VM. Use gemu-image,
+virt-resize (libguestfs-tools on Debian) and resize2fs inside the VM after
+restarting.
+
+To add 4G, first make a gcov2 image into a raw image, then add raw
+bytes and resize the image:
+
+Essentially
+
+1. qemu-img resize windows.qcow2 +5GB
+2. GParted live cd to resize
+3. reboot and use os tools to resize
+
+This being CloudBioLinux you can just simply reinstall (of course).
+
+## Mounting the FS outside the VM
+
+This may work on a raw image (not qcow2)
+
+```sh
+losetup /dev/loop0 hda.img
+kpartx -av /dev/loop0
+mount /dev/mapper/loop0p1 /mnt
+```
+
+Do some work
+
+```
+umount /mnt
+kpartx -dv /dev/loop0
+losetup -d /dev/loop0
+```
+
+
