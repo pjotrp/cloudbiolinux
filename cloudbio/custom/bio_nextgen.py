@@ -18,7 +18,7 @@ from cloudbio import libraries
 from cloudbio.flavor.config import get_config_file
 
 
-@_if_not_installed("twoBitToFa")
+@_if_not_installed(["twoBitToFa", "gtfToGenePred"])
 def install_ucsc_tools(env):
     """Useful executables from UCSC.
 
@@ -312,19 +312,6 @@ def install_varianttools(env):
           "{ver}/variant_tools-{ver}-src.tar.gz".format(ver=version)
     _get_install(url, env, _python_make)
 
-@_if_not_installed("pseq")
-def install_plink_seq(env):
-    """A toolset for working with human genetic variation data.
-    http://atgu.mgh.harvard.edu/plinkseq/
-    """
-    version = "0.08"
-    url = "http://atgu.mgh.harvard.edu/plinkseq/dist/" \
-          "version-{v}/plinkseq-{v}-x86_64.tar.gz".format(v=version)
-    def _plink_copy(env):
-        for x in ["pseq"]:
-            env.safe_sudo("cp {0} {1}/bin".format(x, env.system_install))
-    _get_install(url, env, _plink_copy)
-
 @_if_not_installed("dwgsim")
 def install_dwgsim(env):
     """DWGSIM: simulating NGS data and evaluating mappings and variant calling.
@@ -342,28 +329,6 @@ def install_dwgsim(env):
         env.safe_run("ln -s samtools-{0} samtools".format(samtools_version))
     _get_install(url, env, _make_copy("ls -1 dwgsim dwgsim_eval scripts/dwgsim_pileup_eval.pl"),
                  post_unpack_fn=_get_samtools)
-
-@_if_not_installed("fastqc --version")
-def install_fastqc(env):
-    """A quality control tool for high throughput sequence data.
-    http://www.bioinformatics.babraham.ac.uk/projects/fastqc/
-    """
-    version = "0.10.1"
-    url = "http://www.bioinformatics.bbsrc.ac.uk/projects/fastqc/" \
-          "fastqc_v%s.zip" % version
-    executable = "fastqc"
-    install_dir = _symlinked_java_version_dir("fastqc", version, env)
-    if install_dir:
-        with _make_tmp_dir() as work_dir:
-            with cd(work_dir):
-                out_file = shared._remote_fetch(env, url)
-                env.safe_run("unzip %s" % out_file)
-                with cd("FastQC"):
-                    env.safe_sudo("chmod a+rwx %s" % executable)
-                    env.safe_sudo("mv * %s" % install_dir)
-                env.safe_sudo("ln -s %s/%s %s/bin/%s" % (install_dir, executable,
-                                                         env.system_install, executable))
-
 
 @_if_not_installed("fastq_screen")
 def install_fastq_screen(env):
@@ -480,7 +445,7 @@ def install_varscan(env):
     """Variant detection in massively parallel sequencing data
     http://varscan.sourceforge.net/
     """
-    version = "2.3.6"
+    version = "2.3.7"
     url = "http://downloads.sourceforge.net/project/varscan/VarScan.v%s.jar" % version
     install_dir = _symlinked_java_version_dir("varscan", version, env)
     if install_dir:
@@ -532,8 +497,8 @@ def install_grabix(env):
     """a wee tool for random access into BGZF files
     https://github.com/arq5x/grabix
     """
-    version = "0.1.2"
-    revision = "a78cbaf488"
+    version = "0.1.6"
+    revision = "ba792bc872d38d3cb5a69b2de00e39a6ac367d69"
     try:
         uptodate = versioncheck.up_to_date(env, "grabix", version, stdout_flag="version:")
     # Old versions will not have any version information
@@ -558,36 +523,6 @@ def install_pbgzip(env):
             install_dir = shared._get_bin_dir(env)
             env.safe_sudo("cp -f pbgzip %s" % (install_dir))
     _get_install(repository, env, _build, revision=revision)
-
-def install_snpeff(env):
-    """Variant annotation and effect prediction tool.
-    http://snpeff.sourceforge.net/
-    """
-    version = "3_6"
-    genomes = []
-    #genomes = ["GRCh37.74", "hg19", "GRCm38.74", "athalianaTair10"]
-    url = "http://downloads.sourceforge.net/project/snpeff/" \
-          "snpEff_v%s_core.zip" % version
-    genome_url_base = "http://downloads.sourceforge.net/project/snpeff/"\
-                      "databases/v%s/snpEff_v%s_%s.zip"
-    install_dir = _symlinked_java_version_dir("snpeff", version, env)
-    if install_dir:
-        with _make_tmp_dir() as work_dir:
-            with cd(work_dir):
-                dir_name = _fetch_and_unpack(url)
-                with cd(dir_name):
-                    env.safe_sudo("mv *.jar %s" % install_dir)
-                    env.safe_run("sed -i.bak -e 's/^data_dir.*=.*/data_dir = %s\/data/' %s" %
-                                 (install_dir.replace("/", "\/"), "snpEff.config"))
-                    env.safe_run("chmod a+r *.config")
-                    env.safe_sudo("mv *.config %s" % install_dir)
-                    data_dir = os.path.join(install_dir, "data")
-                    env.safe_sudo("mkdir %s" % data_dir)
-                    for org in genomes:
-                        if not env.safe_exists(os.path.join(data_dir, org)):
-                            gurl = genome_url_base % (version, version, org)
-                            _fetch_and_unpack(gurl, need_dir=False)
-                            env.safe_sudo("mv data/%s %s" % (org, data_dir))
 
 @_if_not_installed("bamtools")
 def install_bamtools(env):
@@ -634,18 +569,6 @@ def install_tophat(env):
                  _make_copy("find . -perm -100 -type f", do_make=False))
 
 install_tophat2 = install_tophat
-
-@_if_not_installed("cufflinks")
-def install_cufflinks(env):
-    """Cufflinks assembles transcripts and tests for differential expression and regulation in RNA-Seq samples.
-    http://cufflinks.cbcb.umd.edu/
-    """
-    default_version = "2.1.1"
-    version = env.get("tool_version", default_version)
-    url = "http://cufflinks.cbcb.umd.edu/downloads/" \
-          "cufflinks-%s.Linux_x86_64.tar.gz" % version
-    _get_install(url, env, _make_copy("find . -perm -100 -type f",
-                                      do_make=False))
 
 # --- Assembly
 
@@ -708,15 +631,14 @@ def install_ray(env):
 
 def install_trinity(env):
     """Efficient and robust de novo reconstruction of transcriptomes from RNA-seq data.
-    http://trinityrnaseq.sourceforge.net/
+    http://trinityrnaseq.github.io/
     """
-    version = "r2012-10-05"
-    url = "http://downloads.sourceforge.net/project/trinityrnaseq/" \
-          "trinityrnaseq_%s.tgz" % version
-    def _remove_werror(env):
-        env.safe_sed("trinity-plugins/jellyfish/Makefile.in", " -Werror", "")
+    version = "2.0.2"
+    url = "https://github.com/trinityrnaseq/trinityrnaseq/archive/" \
+          "v%s.tar.gz" % version
+    dir_name = "trinityrnaseq-%s" % version
     _get_install_local(url, env, _make_copy(),
-                       post_unpack_fn=_remove_werror)
+                       dir_name=dir_name)
 
 def install_cortex_var(env):
     """De novo genome assembly and variation analysis from sequence data.
@@ -755,7 +677,7 @@ def install_bcbio_variation(env):
     """Toolkit to analyze genomic variation data with comparison and ensemble approaches.
     https://github.com/chapmanb/bcbio.variation
     """
-    version = "0.1.6"
+    version = "0.2.4"
     url = "https://github.com/chapmanb/bcbio.variation/releases/download/" \
           "v%s/bcbio.variation-%s-standalone.jar" % (version, version)
     install_dir = _symlinked_java_version_dir("bcbio_variation", version, env)
@@ -824,8 +746,9 @@ def install_tassel(env):
     """TASSEL: evaluate traits associations, evolutionary patterns, and linkage disequilibrium.
     http://www.maizegenetics.net/index.php?option=com_content&task=view&id=89&/Itemid=119
     """
-    version = "4.0"
-    url = "http://www.maizegenetics.net/tassel/tassel{0}_standalone.zip".format(version)
+    version = "5"
+    build_id = "1140d3fceb75"
+    url = "https://bitbucket.org/tasseladmin/tassel-{0}-standalone/get/{1}.zip".format(version, build_id)
     executables = ["start_tassel.pl", "run_pipeline.pl"]
     install_dir = _symlinked_java_version_dir("tassel", version, env)
     if install_dir:
@@ -833,7 +756,7 @@ def install_tassel(env):
             with cd(work_dir):
                 dl_file = shared._remote_fetch(env, url)
                 env.safe_run("unzip %s" % dl_file)
-                with cd("tassel{0}_standalone".format(version)):
+                with cd("tasseladmin-tassel-{0}-standalone-{1}".format(version, build_id)):
                     for x in executables:
                         env.safe_sed(x, "^my \$top.*;",
                                      "use FindBin qw($RealBin); my $top = $RealBin;")

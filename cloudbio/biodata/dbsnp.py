@@ -39,6 +39,7 @@ def download_dbsnp(genomes, bundle_version, dbsnp_version):
                 _dbsnp_human(env, gid, manager, bundle_version, dbsnp_version)
             elif gid in ["mm10", "canFam3"]:
                 _dbsnp_custom(env, gid)
+                _download_lcrs_custom(env, gid)
 
 def _dbsnp_custom(env, gid):
     """Retrieve resources for dbsnp builds from custom S3 biodata bucket.
@@ -67,11 +68,15 @@ def _dbsnp_human(env, gid, manager, bundle_version, dbsnp_version):
     _download_repeats(gid)
     _download_dbnsfp(env, gid, manager.config)
     _download_ancestral(env, gid, manager.config)
+    _download_qsignature(env, gid, manager.config)
     # XXX Wait to get this by default until it is used more widely
     #_download_background_vcf(gid)
 
 def _download_broad_bundle(gid, bundle_version, name, ext):
-    broad_fname = "{name}.{gid}.vcf{ext}".format(gid=gid, name=name, ext=ext)
+    # Broad bundle directories have uneven use of ".sites" in VCF files
+    # only present in hg19 for non-dbSNP resources
+    sites = ".sites" if gid == "hg19" and not name.startswith("dbsnp") else ""
+    broad_fname = "{name}.{gid}{sites}.vcf{ext}".format(gid=gid, name=name, sites=sites, ext=ext)
     fname = broad_fname.replace(".{0}".format(gid), "").replace(".sites", "") + ".gz"
     base_url = "ftp://gsapubftp-anonymous:@ftp.broadinstitute.org/bundle/" + \
                "{bundle}/{gid}/{fname}.gz".format(
@@ -82,13 +87,10 @@ def _download_broad_bundle(gid, bundle_version, name, ext):
         env.safe_run("tabix -f -p vcf %s" % fname)
     # otherwise, download and bgzip and tabix index
     if not env.safe_exists(fname):
-        out_file = shared._remote_fetch(env, base_url, allow_fail=True)
-        if out_file:
-            env.safe_run("gunzip -c %s | bgzip -c > %s" % (out_file, fname))
-            env.safe_run("tabix -f -p vcf %s" % fname)
-            env.safe_run("rm -f %s" % out_file)
-        else:
-            env.logger.warn("dbSNP resources not available for %s" % gid)
+        out_file = shared._remote_fetch(env, base_url)
+        env.safe_run("gunzip -c %s | bgzip -c > %s" % (out_file, fname))
+        env.safe_run("tabix -f -p vcf %s" % fname)
+        env.safe_run("rm -f %s" % out_file)
     # clean up old files
     for ext in [".vcf", ".vcf.idx"]:
         if env.safe_exists(fname.replace(".vcf.gz", ext)):
@@ -118,16 +120,17 @@ def _download_dbnsfp(env, gid, gconfig):
     https://sites.google.com/site/jpopgen/dbNSFP
     https://github.com/ensembl-variation/VEP_plugins/blob/master/dbNSFP.pm
     """
-    version = "2.5"
-    url = "http://dbnsfp.houstonbioinformatics.org/dbNSFPzip/dbNSFPv%s.zip" % version
+    version = "3.0b2c"
+    url = "ftp://dbnsfp:dbnsfp@dbnsfp.softgenetics.com/dbNSFPv%s.zip" % version
+    dl_file = "dbNSFPv%s.zip" % version
     if gconfig.get("dbnsfp"):
         outfile = "dbNSFP_v%s.gz" % (version)
-        if gid == "GRCh37":  # download and prepare bgzipped output file
+        if gid == "GRCh37" or (gid == "hg19" and not env.safe_exists("../../GRCh37")):
             if not env.safe_exists(outfile):
-                zipfile = shared._remote_fetch(env, url, samedir=True)
+                zipfile = shared._remote_fetch(env, url, out_file=dl_file, samedir=True)
                 outdir = "dbNSFPv%s" % version
                 env.safe_run("mkdir -p %s" % outdir)
-                env.safe_run("unzip %s -d %s" % (zipfile, outdir))
+                env.safe_run("7za x %s -y -o%s" % (zipfile, outdir))
                 env.safe_run("cat %s/dbNSFP*_variant.chr* | bgzip -c > %s" % (outdir, outfile))
                 env.safe_run("rm -f %s/* && rmdir %s" % (outdir, outdir))
                 env.safe_run("rm -f %s" % (zipfile))
@@ -144,17 +147,41 @@ def _download_ancestral(env, gid, gconfig):
 
     Used by LOFTEE VEP plugin: https://github.com/konradjk/loftee
     """
-    base_url = "http://www.broadinstitute.org/~konradk/loftee/human_ancestor.fa.rz"
-    if gid == "GRCh37":
-        for ext in ["", ".fai"]:
+    base_url = "https://s3.amazonaws.com/bcbio_nextgen/human_ancestor.fa.gz"
+    if gid == "GRCh37" or (gid == "hg19" and not env.safe_exists("../../GRCh37")):
+        for ext in ["", ".fai", ".gzi"]:
             outfile = os.path.basename(base_url) + ext
             if not env.safe_exists(outfile):
                 shared._remote_fetch(env, base_url + ext, samedir=True)
     elif gid == "hg19":  # symlink to GRCh37 download
-        for ext in ["", ".fai"]:
+        for ext in ["", ".fai", ".gzi"]:
             outfile = os.path.basename(base_url) + ext
             if not env.safe_exists(outfile):
                 env.safe_run("ln -sf ../../GRCh37/variation/%s %s" % (outfile, outfile))
+
+def _download_qsignature(env, gid, gconfig):
+    """Download qsignature position file to detect samples problems
+
+    :param env
+    :param gid: str genome id
+    :param gconfig: 
+
+    :returns: NULL
+    """
+    base_url = "http://downloads.sourceforge.net/project/adamajava/qsignature.tar.bz2"
+    outfile = "qsignature.vcf"
+    if gid == "GRCh37" or (gid == "hg19" and not env.safe_exists("../../GRCh37")):
+        if not env.safe_exists(outfile):
+            zipfile = shared._remote_fetch(env, base_url, samedir=True)
+            outdir = "qsignature"
+            env.safe_run("mkdir -p %s" % outdir)
+            env.safe_run("tar -jxf %s -C %s" % (zipfile, outdir))
+            env.safe_run("mv %s/qsignature_positions.txt %s" % (outdir, outfile))
+            env.safe_run("rm -rf %s" % outdir)
+            env.safe_run("rm -rf %s" % zipfile)
+    elif gid == "hg19":  # symlink to GRCh37 download
+        if not env.safe_exists(outfile):
+            env.safe_run("ln -sf ../../GRCh37/variation/%s %s" % (outfile, outfile))
 
 def _download_background_vcf(gid):
     """Download background file of variant to use in calling.
@@ -200,4 +227,19 @@ def _download_lcrs(gid):
             env.safe_run("zcat %s %s | bgzip -c > %s" % (orig_file, convert_cmd, out_file))
             return out_file
         shared._remote_fetch(env, lcr_url, fix_fn=_fix_chrom_names)
+        env.safe_run("tabix -p vcf -f %s" % out_file)
+
+def _download_lcrs_custom(env, gid):
+    """Retrieve low complexity regions from other sources.
+
+    mm10 from Brent Pedersen: http://figshare.com/articles/LCR_mm10_bed_gz/1180124
+    """
+    urls = {"mm10": "http://files.figshare.com/1688228/LCR_mm10.bed.gz"}
+    out_file = "LCR.bed.gz"
+    cur_url = urls.get(gid)
+    if cur_url and not env.safe_exists(out_file):
+        def _bgzip_file(env, orig_file):
+            env.safe_run("zcat %s | bgzip -c > %s" % (orig_file, out_file))
+            return out_file
+        shared._remote_fetch(env, cur_url, fix_fn=_bgzip_file)
         env.safe_run("tabix -p vcf -f %s" % out_file)

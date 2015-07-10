@@ -1,44 +1,68 @@
 # Packages available in the Homebrew and Linuxbrew package manager
 ---
+minimal:
+  - cmake
+  - p7zip
+  - pkg-config
+  - s3gof3r
 perl:
   - cpanminus
 bio_nextgen:
   alignment:
     - bwa
-#    - bowtie2       (2.2.0 doesn't work with Tophat, so use the source version for now)
+    - bwakit
+    - bowtie2 
     - novoalign
     - rna-star
+    # - snap-aligner # Needs sync with homebrew-cbl/homebrew-science and compile on older gcc
+    - tophat-binary
   utilities:
     - bamtools
     - bedtools
     - cramtools
-    - libmaus
     - biobambam
+    - express-binary
     - fastqc
+    - grabix
+    - picard-tools
     - qualimap
     - kraken
-    - sambamba
+    - sambamba-binary
     - samblaster
-    - seqtk==HEAD
+    - seqtk
     - speedseq
     - staden_io_lib
+    - oncofuse
+    - sickle
   analysis:
-    #- cufflinks
-    - samtools
+    - cufflinks-binary
+    - samtools;--without-curses
+    - samtools-library-0.1
     - htslib
     - bcftools
-    #- tophat
   variant:
+    - bcbio-variation-recall
+    - cancerit-allelecount
+    - delly;--with-binary
     - freebayes
     - gatk-framework
-    - glia
+    #- glia  # Needs updates to fsom
     - hall-lab-sv-tools
+    - impute2
+    - lofreq
     - lumpy-sv
+    - pindel
     - platypus-variant
     - rtg-tools
     - scalpel
     - snpeff
+    - theta2
+    - vardict
+    - vardict-java
     - vcflib
     - vep
+    - wham;--with-binary
+    - qsignature
+    # - qsnp # Issues with download and reliability of qcmg site
     # - vcftools # Build problems with default libz on Ubuntu 12.04
-    - vt
+    - vt;--with-binary

@@ -35,7 +35,7 @@ from cloudbio.cloudman import _cleanup_ec2, _configure_cloudman
 from cloudbio.cloudbiolinux import _cleanup_space, _freenx_scripts
 from cloudbio.custom import shared
 from cloudbio.package.shared import _yaml_to_packages
-from cloudbio.package import brew
+from cloudbio.package import brew, conda
 from cloudbio.package import (_configure_and_install_native_packages,
                               _connect_native_packages, _print_shell_exports)
 from cloudbio.package.nix import _setup_nix_sources, _nix_packages
@@ -68,7 +68,7 @@ def install_biolinux(target=None, flavor=None):
     time_start = _print_time_stats("Config", "start")
     _check_fabric_version()
     if env.ssh_config_path and os.path.isfile(os.path.expanduser(env.ssh_config_path)):
-      env.use_ssh_config = True
+        env.use_ssh_config = True
     _configure_fabric_environment(env, flavor,
                                   ignore_distcheck=(target is not None
                                                     and target in ["libraries", "custom"]))
@@ -116,6 +116,8 @@ def _perform_install(target=None, flavor=None, more_custom_add=None):
         _provision_puppet_classes(pkg_install, custom_ignore)
     if target is None or target == "brew":
         install_brew(flavor=flavor, automated=True)
+    if target is None or target == "conda":
+        install_conda(flavor=flavor, automated=True)
     if target is None or target == "libraries":
         _do_library_installs(lib_install)
     if target is None or target == "post_install":
@@ -306,6 +308,16 @@ def install_brew(p=None, version=None, flavor=None, automated=False):
     else:
         pkg_install = _read_main_config()[0]
         brew.install_packages(env, to_install=pkg_install)
+
+def install_conda(p=None, flavor=None, automated=False):
+    if not automated:
+        _setup_logging(env)
+        _configure_fabric_environment(env, flavor, ignore_distcheck=True)
+    if p is not None:
+        conda.install_packages(env, packages=[p])
+    else:
+        pkg_install = _read_main_config()[0]
+        conda.install_packages(env, to_install=pkg_install)
 
 def _custom_install_function(env, p, pkg_to_group):
     """

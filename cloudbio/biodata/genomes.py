@@ -15,7 +15,7 @@ import os
 import operator
 import socket
 import subprocess
-from contextlib import contextmanager
+from math import log
 
 from fabric.api import *
 from fabric.contrib.files import *
@@ -29,11 +29,12 @@ try:
 except ImportError:
     boto = None
 
-from cloudbio.biodata import galaxy
+from cloudbio.biodata import galaxy, ggd
 from cloudbio.biodata.dbsnp import download_dbsnp
 from cloudbio.biodata.rnaseq import download_transcripts
 from cloudbio.custom import shared
 from cloudbio.fabutils import quiet
+import multiprocessing as mp
 
 # -- Configuration for genomes to download and prepare
 
@@ -70,7 +71,7 @@ class UCSCGenome(_DownloadHelper):
                 base = base[3:]
             parts = base.split("_")
             try:
-                parts[0] =  int(parts[0])
+                parts[0] = int(parts[0])
             except ValueError:
                 pass
             # unplaced at the very end
@@ -103,7 +104,6 @@ class UCSCGenome(_DownloadHelper):
         file_handle.close()
         return file_names
 
-
     def download(self, seq_dir):
         zipped_file = None
         genome_file = "%s.fa" % self._name
@@ -129,13 +129,14 @@ class UCSCGenome(_DownloadHelper):
                     result = self._split_multifasta(result[0])
                     env.safe_run("rm %s" % orig_result)
                 result = self._karyotype_sort(result)
-                result = [os.path.basename(x) for x in result]
                 env.safe_run("rm -f inputs.txt")
                 for fname in result:
                     with quiet():
                         env.safe_run("echo '%s' >> inputs.txt" % fname)
                 env.safe_run("cat `cat inputs.txt` > %s" % (tmp_file))
-                env.safe_run("rm -f *.fa")
+                for fname in result:
+                    with quiet():
+                        env.safe_run("rm -f %s" % fname)
                 env.safe_run("mv %s %s" % (tmp_file, genome_file))
                 zipped_file = os.path.join(prep_dir, zipped_file)
                 genome_file = os.path.join(prep_dir, genome_file)
@@ -185,7 +186,7 @@ class VectorBase(_DownloadHelper):
         self._name = name
         self.data_source = "VectorBase"
         self._base_url = ("http://www.vectorbase.org/sites/default/files/ftp/"
-                     "downloads/")
+                          "downloads/")
         _base_file = ("{genus}-{species}-{strain}_{assembly}"
                       "_{release}.fa.gz")
         self._to_get = []
@@ -202,31 +203,35 @@ class VectorBase(_DownloadHelper):
                 env.safe_run("gunzip -c %s >> %s" % (fn, genome_file))
         return genome_file, []
 
-
 class EnsemblGenome(_DownloadHelper):
     """Retrieve genome FASTA files from Ensembl.
 
-    ftp://ftp.ensemblgenomes.org/pub/plants/release-3/fasta/
-    arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR9.55.dna.toplevel.fa.gz
-    ftp://ftp.ensembl.org/pub/release-56/fasta/
-    caenorhabditis_elegans/dna/Caenorhabditis_elegans.WS200.56.dna.toplevel.fa.gz
+    ftp://ftp.ensemblgenomes.org/pub/plants/release-22/fasta/
+    arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR10.22.dna.toplevel.fa.gz
+    ftp://ftp.ensembl.org/pub/release-75/fasta/
+    caenorhabditis_elegans/dna/Caenorhabditis_elegans.WBcel235.75.dna.toplevel.fa.gz
+    ftp://ftp.ensemblgenomes.org/pub/bacteria/release-23/bacteria/fasta/
+    bacteria_17_collection/pseudomonas_aeruginosa_ucbpp_pa14/dna/
+    Pseudomonas_aeruginosa_ucbpp_pa14.GCA_000014625.1.23.dna.toplevel.fa.gz
     """
-    def __init__(self, ensembl_section, release_number, release2, organism,
-            name, convert_to_ucsc=False, dl_name = None):
+    def __init__(self, ensembl_section, release, organism, name, subsection=None):
         _DownloadHelper.__init__(self)
         self.data_source = "Ensembl"
         if ensembl_section == "standard":
             url = "ftp://ftp.ensembl.org/pub/"
         else:
             url = "ftp://ftp.ensemblgenomes.org/pub/%s/" % ensembl_section
-        url += "release-%s/fasta/%s/dna/" % (release_number, organism.lower())
+        url += "release-%s/fasta/" % release
+        if subsection:
+            url += "%s/" % subsection
+        url += "%s/dna/" % organism.lower()
         self._url = url
-        release2 = ".%s" % release2 if release2 else ""
-        self._get_file = "%s.%s%s.dna.toplevel.fa.gz" % (organism, name,
-                release2)
+        if ensembl_section == "standard":
+            self._get_file = "%s.%s.dna.toplevel.fa.gz" % (organism, name)
+        else:
+            self._get_file = "%s.%s.%s.dna.toplevel.fa.gz" % (organism, name, release)
         self._name = name
-        self.dl_name = dl_name if dl_name is not None else name
-        self._convert_to_ucsc = convert_to_ucsc
+        self.dl_name = name
 
     def download(self, seq_dir):
         genome_file = "%s.fa" % self._name
@@ -234,9 +239,6 @@ class EnsemblGenome(_DownloadHelper):
             shared._remote_fetch(env, "%s%s" % (self._url, self._get_file))
         if not self._exists(genome_file, seq_dir):
             env.safe_run("gunzip -c %s > %s" % (self._get_file, genome_file))
-        if self._convert_to_ucsc:
-            #run("sed s/ / /g %s" % genome_file)
-            raise NotImplementedError("Replace with chr")
         return genome_file, [self._get_file]
 
 class BroadGenome(_DownloadHelper):
@@ -261,6 +263,12 @@ class BroadGenome(_DownloadHelper):
             env.safe_run("mv %s %s" % (self._target, org_file))
         return org_file, []
 
+class GGDGenome:
+    """Genome with download specified via a GGD recipe.
+    """
+    def __init__(self, name):
+        self._name = name
+
 BROAD_BUNDLE_VERSION = "2.8"
 DBSNP_VERSION = "138"
 
@@ -276,23 +284,27 @@ GENOMES_SUPPORTED = [
                                             "ucsc.hg19.fasta")),
            ("Hsapiens", "GRCh37", BroadGenome("GRCh37", BROAD_BUNDLE_VERSION,
                                               "human_g1k_v37.fasta", "b37")),
+           ("Hsapiens", "hg38", GGDGenome("hg38")),
+           ("Hsapiens", "hg38-noalt", GGDGenome("hg38-noalt")),
            ("Rnorvegicus", "rn5", UCSCGenome("rn5")),
            ("Rnorvegicus", "rn4", UCSCGenome("rn4")),
            ("Xtropicalis", "xenTro3", UCSCGenome("xenTro3")),
-           ("Athaliana", "araTha_tair9", EnsemblGenome("plants", "6", "",
-               "Arabidopsis_thaliana", "TAIR9")),
+           ("Athaliana", "TAIR10", EnsemblGenome("plants", "26",
+                                                 "Arabidopsis_thaliana", "TAIR10")),
            ("Dmelanogaster", "dm3", UCSCGenome("dm3")),
-           ("Celegans", "WS210", EnsemblGenome("standard", "60", "60",
-               "Caenorhabditis_elegans", "WS210")),
+           ("Celegans", "WBcel235", EnsemblGenome("standard", "80",
+                                                  "Caenorhabditis_elegans", "WBcel235")),
            ("Mtuberculosis_H37Rv", "mycoTube_H37RV", NCBIRest("mycoTube_H37RV",
                ["NC_000962"])),
            ("Msmegmatis", "92", NCBIRest("92", ["NC_008596.1"])),
-           ("Paeruginosa_UCBPP-PA14", "386", NCBIRest("386", ["CP000438.1"])),
+           ("Paeruginosa_UCBPP-PA14", "pseudomonas_aeruginosa_ucbpp_pa14",
+            EnsemblGenome("bacteria", "26", "Pseudomonas_aeruginosa_ucbpp_pa14",
+                          "GCA_000014625.1", "bacteria_17_collection")),
            ("Ecoli", "eschColi_K12", NCBIRest("eschColi_K12", ["U00096.2"])),
            ("Amellifera_Honeybee", "apiMel3", UCSCGenome("apiMel3")),
            ("Cfamiliaris_Dog", "canFam3", UCSCGenome("canFam3")),
            ("Cfamiliaris_Dog", "canFam2", UCSCGenome("canFam2")),
-           ("Drerio_Zebrafish", "Zv9", UCSCGenome("danRer7")),
+           ("Drerio_Zebrafish", "Zv9", EnsemblGenome("standard", "80", "Danio_rerio", "Zv9")),
            ("Ecaballus_Horse", "equCab2", UCSCGenome("equCab2")),
            ("Fcatus_Cat", "felCat3", UCSCGenome("felCat3")),
            ("Ggallus_Chicken", "galGal3", UCSCGenome("galGal3")),
@@ -306,7 +318,7 @@ GENOMES_SUPPORTED = [
 
 
 GENOME_INDEXES_SUPPORTED = ["bowtie", "bowtie2", "bwa", "maq", "novoalign", "novoalign-cs",
-                            "ucsc", "mosaik", "star"]
+                            "ucsc", "mosaik", "snap", "star"]
 DEFAULT_GENOME_INDEXES = ["seq"]
 
 # -- Fabric instructions
@@ -320,6 +332,7 @@ def install_data(config_source, approaches=None):
     """Main entry point for installing useful biological data.
     """
     PREP_FNS = {"s3": _download_s3_index,
+                "ggd": _install_with_ggd,
                 "raw": _prep_raw_index}
     if approaches is None: approaches = ["raw"]
     ready_approaches = []
@@ -329,7 +342,7 @@ def install_data(config_source, approaches=None):
     # Append a potentially custom system install path to PATH so tools are found
     with path(os.path.join(env.system_install, 'bin')):
         genomes, genome_indexes, config = _get_genomes(config_source)
-        genome_indexes += [x for x in DEFAULT_GENOME_INDEXES if x not in genome_indexes]
+        genome_indexes = [x for x in DEFAULT_GENOME_INDEXES if x not in genome_indexes] + genome_indexes
         _make_genome_directories(env, genomes)
         download_transcripts(genomes, env)
         _prep_genomes(env, genomes, genome_indexes, ready_approaches)
@@ -392,8 +405,8 @@ def _get_genomes(config_source):
             config = yaml.load(in_handle)
     genomes = []
     genomes_config = config["genomes"] or []
-    env.logger.info("List of genomes to get (from the config file at '{0}'): {1}"\
-        .format(config_source, ', '.join(g.get('name', g["dbkey"]) for g in genomes_config)))
+    env.logger.info("List of genomes to get (from the config file at '{0}'): {1}"
+                    .format(config_source, ', '.join(g.get('name', g["dbkey"]) for g in genomes_config)))
     for g in genomes_config:
         ginfo = None
         for info in GENOMES_SUPPORTED:
@@ -405,6 +418,9 @@ def _get_genomes(config_source):
         manager.config = g
         genomes.append((name, gid, manager))
     indexes = config["genome_indexes"] or []
+    if "seq" in indexes:
+        indexes.remove("seq")
+        indexes.insert(0, "seq")
     return genomes, indexes, config
 
 # ## Decorators and context managers
@@ -449,7 +465,7 @@ def _prep_genomes(env, genomes, genome_indexes, retrieve_fns):
         org_dir = os.path.join(genome_dir, orgname, gid)
         if not env.safe_exists(org_dir):
             env.safe_run('mkdir -p %s' % org_dir)
-        for idx in genome_indexes:
+        for idx in genome_indexes + manager.config.get("annotations", []):
             with cd(org_dir):
                 if not env.safe_exists(idx):
                     finished = False
@@ -461,7 +477,11 @@ def _prep_genomes(env, genomes, genome_indexes, retrieve_fns):
                         except KeyboardInterrupt:
                             raise
                         except:
-                            env.logger.exception("Genome preparation method {0} failed, trying next".format(method))
+                            # Fail on incorrect GGD recipes
+                            if idx in manager.config.get("annotations", []) and method == "ggd":
+                                raise
+                            else:
+                                env.logger.info("Genome preparation method {0} failed, trying next".format(method))
                     if not finished:
                         raise IOError("Could not prepare index {0} for {1} by any method".format(idx, gid))
         ref_file = os.path.join(org_dir, "seq", "%s.fa" % gid)
@@ -477,8 +497,10 @@ def _get_ref_seq(env, manager):
     """Check for or retrieve the reference sequence.
     """
     seq_dir = os.path.join(env.cwd, "seq")
-    ref_file, base_zips = manager.download(seq_dir)
-    ref_file = _move_seq_files(ref_file, base_zips, seq_dir)
+    ref_file = os.path.join(seq_dir, "%s.fa" % manager._name)
+    if not env.safe_exists(ref_file):
+        ref_file, base_zips = manager.download(seq_dir)
+        ref_file = _move_seq_files(ref_file, base_zips, seq_dir)
     return ref_file
 
 def _prep_raw_index(env, manager, gid, idx):
@@ -672,10 +694,25 @@ def _index_star(ref_file):
     if not os.path.exists(gtf_file):
         print "%s not found, skipping creating the STAR index." % (gtf_file)
         return None
-    dir_name = os.path.join(ref_dir, os.pardir, "star")
+    GenomeLength = os.path.getsize(ref_file)
+    Nbases = int(round(min(14, log(GenomeLength, 2)/2 - 2), 0))
+    dir_name = os.path.normpath(os.path.join(ref_dir, os.pardir, "star"))
+    cpu = mp.cpu_count()
     cmd = ("STAR --genomeDir %s --genomeFastaFiles {ref_file} "
-           "--runMode genomeGenerate --sjdbOverhang 99 --sjdbGTFfile %s" % (dir_name, gtf_file))
-    return  _index_w_command(dir_name, cmd, ref_file)
+           "--runThreadN %s "
+           "--runMode genomeGenerate --sjdbOverhang 99 --sjdbGTFfile %s --genomeSAindexNbases %s" % (dir_name, str(cpu), gtf_file, Nbases))
+    return _index_w_command(dir_name, cmd, ref_file)
+
+def _index_snap(ref_file):
+    """Snap indexing is computationally expensive. Ask for all cores and need 64Gb of memory.
+    """
+    dir_name = "snap"
+    index_name = os.path.splitext(os.path.basename(ref_file))[0]
+    org_arg = "-hg19" if index_name in ["hg19", "GRCh37"] else ""
+    cmd = "snap index {ref_file} {dir_name} -bSpace {org_arg}"
+    if not env.safe_exists(os.path.join(dir_name, "GenomeIndex")):
+        env.safe_run(cmd.format(**locals()))
+    return dir_name
 
 @_if_installed("MosaikJump")
 def _index_mosaik(ref_file):
@@ -691,6 +728,18 @@ def _index_mosaik(ref_file):
             env.safe_run(cmd)
     return _index_w_command(dir_name, cmd, ref_file,
                             post=create_jumpdb, ext=".dat")
+
+# -- Retrieve using GGD recipes
+
+def _install_with_ggd(env, manager, gid, recipe):
+    assert env.hosts == ["localhost"], "GGD recipes only work for local runs"
+    recipe_dir = os.path.normpath(os.path.join(os.path.dirname(__file__),
+                                               os.pardir, os.pardir, "ggd-recipes"))
+    recipe_file = os.path.join(recipe_dir, gid, "%s.yaml" % recipe)
+    if os.path.exists(recipe_file):
+        ggd.install_recipe(env.cwd, recipe_file)
+    else:
+        raise NotImplementedError("GGD recipe not available for %s %s" % (gid, recipe))
 
 # -- Genome upload and download to Amazon s3 buckets
 
@@ -862,5 +911,6 @@ INDEX_FNS = {
     "novoalign": _index_novoalign,
     "novoalign_cs": _index_novoalign_cs,
     "ucsc": _index_twobit,
-    "star": _index_star
+    "star": _index_star,
+    "snap": _index_snap,
     }

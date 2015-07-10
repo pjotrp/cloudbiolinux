@@ -87,22 +87,15 @@ def write_brew_pkg_info(out_dir, tooldir):
         if not brew_cmd or not os.path.exists(brew_cmd):
             brew_cmd = "brew"
         try:
-            vout = subprocess.check_output([brew_cmd, "which"])
-            uses_which = True
-        except subprocess.CalledProcessError:
             vout = subprocess.check_output([brew_cmd, "list", "--versions"])
-            uses_which = False
         except OSError:  # brew not installed/used
             vout = ""
         out = {}
         for vstr in vout.split("\n"):
             if vstr.strip():
-                if uses_which:
-                    name, v = vstr.rstrip().split(": ")
-                else:
-                    parts = vstr.rstrip().split()
-                    name = parts[0]
-                    v = parts[-1]
+                parts = vstr.rstrip().split()
+                name = parts[0]
+                v = parts[-1]
                 out[name] = {"name": name, "version": v}
         with open(out_file, "w") as out_handle:
             yaml.safe_dump(out, out_handle, default_flow_style=False, allow_unicode=False)
@@ -159,7 +152,7 @@ def get_python_pkg_info():
                     yield {"name": name.lower(), "version": version[1:-1]}
 
 def _resolve_latest_pkg(pkgs):
-    if len(pkgs) == 1:
+    if len(pkgs) == 1 or not yolk:
         return pkgs[0]
     else:
         latest_version = yolk.yolklib.Distributions().get_highest_installed(pkgs[0]["name"])
@@ -197,12 +190,13 @@ def get_debian_pkg_info(fetch_remote=False):
     for pkg_line in [l for l in subprocess.check_output(cmd, shell=True).split("\n")
                      if l.startswith("install ok")]:
         parts = pkg_line.rstrip("\n").split("\t")
-        pkg = {"name": parts[1], "version": parts[2],
-               "section": parts[3], "homepage_uri": parts[4],
-               "description": parts[5]}
-        if pkg_popcon.get(pkg["name"]):
-            pkg["downloads"] = pkg_popcon.get(pkg["name"], 0)
-        yield pkg
+        if len(parts) > 5:
+            pkg = {"name": parts[1], "version": parts[2],
+                   "section": parts[3], "homepage_uri": parts[4],
+                   "description": parts[5]}
+            if pkg_popcon.get(pkg["name"]):
+                pkg["downloads"] = pkg_popcon.get(pkg["name"], 0)
+            yield pkg
 
 def write_debian_pkg_info(out_dir, fetch_remote=False):
     base_sections = set(["gnome", "admin", "utils", "web", "games",

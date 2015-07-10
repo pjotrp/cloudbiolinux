@@ -34,6 +34,7 @@ minimal:
     - bzr
     #- darcs # pulls in postfix mail configuration.
   build:
+    - bsdmainutils
     - clang
     - cmake
     - gcc
@@ -46,8 +47,9 @@ minimal:
   util:
     - axel
     - gawk
-    - rsync
     - openssh-server
+    - pigz
+    - rsync
     - screen
     - unzip
     - less
@@ -101,8 +103,6 @@ desktop:
     - firefox
     - evince
     - ubuntu-desktop
-    - cloudbl-desktop
-    - bio-linux-tutorials
     - xvfb
     - gdm
   # NX compatible window managers on Ubuntu 11.10+
@@ -209,7 +209,6 @@ r:
   - r-base
   - r-base-core
   - r-base-dev
-  - r-base-html
 perl:
   - perl
   - libperl-dev
@@ -299,43 +298,18 @@ boinc:
   - boinc-manager
 bio_general:
   - primer3
-  - bio-linux-catchall
-  # - bio-linux-emboss
-  - bio-linux-readseq
-  # - emboss # Broken on 13.10
-  # - emboss-data # Broken on 13.10
-  # - emboss-lib # broken on 13.10
-  # - jemboss # Broken on 13.10
   - ugene
 bio_search:
   - blast2
   - ncbi-tools-bin
-  - bio-linux-blast
-  - bio-linux-blixem
-  - bio-linux-fasta
-  - bio-linux-hmmer
-  - bio-linux-mspcrunch
-  - bio-linux-mview
-  # - bio-linux-nrdb # broken Depends: ia32-libs
   - cdbfasta
 bio_alignment:
-  # - bio-linux-clustal # Broken on 14.04
-  - bio-linux-dotter
-  #- bio-linux-jalview # Broken on 14.04
-  - bio-linux-mcl
-  - bio-linux-mummer
-  - bio-linux-pfaat
-  #- bio-linux-seaview # Broken on 14.04
-  - bio-linux-squint
-  - bio-linux-t-coffee
   - exonerate
   - mafft
   - muscle
-  - bio-linux-prank
   - probcons
   - wise
 bio_nextgen:
-  - bio-linux-fastqc
   - fastx-toolkit
   - maq
   - plink
@@ -343,43 +317,18 @@ bio_nextgen:
   - tabix
   # - samtools # only on 0.18, prefer custom build
 bio_sequencing:
-  #- bio-linux-assembly-conversion-tools # broken Depends: bio-linux-staden
-  - bio-linux-cap3
-  #- bio-linux-dust  # broken on 14.04
-  #- bio-linux-lucy  # broken on 14.04
-  # - bio-linux-staden # broken Depends: ia32-libs
-  # - bio-linux-stars # broken Depends: bio-linux-staden
-  - bio-linux-tablet
-  # - mira-assembler # broken on ubuntu 13.04
 bio_annotation:
   - mcl
   - predictprotein
   - tigr-glimmer
-  - bio-linux-artemis
-  - bio-linux-big-blast
-  - bio-linux-cd-hit
-  # - bio-linux-estscan  # broken on ubuntu 14.04 (#163)
-  # - bio-linux-jprofilegrid # broken on 14.04
-  # - bio-linux-msatfinder # broken on 13.10
-#   - bio-linux-prot4est - broken, fix in progress
-  - bio-linux-rbs-finder
-  - bio-linux-transterm-hp
-  # - bio-linux-trnascan # Broken on 14.04
-  # - bio-linux-tetra # broken Depends: ia32-libs
-  # 500Mb of disk: - bio-linux-priam
 bio_markergenes:
-  - bio-linux-ampliconnoise
-  - bio-linux-jmotu
-  - bio-linux-mothur
-  - bio-linux-rdp-classifier
-  - bio-linux-qiime
+  - ampliconnoise
+  - mothur
+  - rdp-classifier
+  - qiime
 bio_microarray:
-  #- bio-linux-ocount # broken Depends: ia32-libs
-  - bio-linux-oligoarray
-  - bio-linux-oligoarrayaux
 bio_visualization:
   - rasmol
-  # - bio-linux-clcsequenceviewer # Awaiting fix
 bio_proteomics:
   all:
     # Required for protk
@@ -441,12 +390,6 @@ bio_proteomics:
 bio_proteomics_wine:
   - wine
 bio_utils:
-  - bio-linux-genquery
-  - bio-linux-keyring
-  - bio-linux-bldp-files
-  - bio-linux-sampledata
-  - bio-linux-taxinspector
-  # - bio-linux-xcut # hash mismatch
 phylogeny_testing:
   # new packages in testing (Debian 'wheezy')
   all:
@@ -463,21 +406,9 @@ phylogeny:
     - mrbayes
     - njplot
     - tree-puzzle
-    #- bio-linux-arb # problematic install questions
-    - bio-linux-archaeopteryx
-    - bio-linux-cytoscape
-    - bio-linux-dendroscope
-    - bio-linux-fastdnaml
-    #- bio-linux-happy # broken Depends: ia32-libs
-    - bio-linux-mesquite
-    - bio-linux-mrbayes
-    #- bio-linux-paml # Broken on 14.04
-    - bio-linux-omegamap
-    - bio-linux-qtlcart
-    #- bio-linux-splitstree # Broken on 14.04
-    - bio-linux-treeview
+    - treeviewx
   needs_64bit:
-    - bio-linux-fasttree
+    - fasttree
 ## Package lists imported from mi-deployment.
 cloudman:
   all:
@@ -628,27 +559,3 @@ galaxyp:
      - libffi-dev
      - libsqlite3-dev
      - sqlite3
-
-# To do -- in Deb Med but not propogated
-# squizz
-# biomaj
-#
-# To Add -- need packages
-# from bioperl-max:
-#   hyphy
-#   bioperl-db
-#   more perl modules
-# from bio-linux:
-#   Celera Assembler
-#   lamarc - not available just now (22/6/10)
-#   peptidemapper
-#   pftools
-#   transterm
-# Others:
-#   mdust
-#   IGV
-#   trimpoly
-#   blast2go
-#   sputnik: microsattelites
-#   GenomeView
-

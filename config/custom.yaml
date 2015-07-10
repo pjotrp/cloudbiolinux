@@ -25,7 +25,6 @@ bio_nextgen:
     - disambiguate
     - alientrimmer
   analysis:
-    - cufflinks
     # - echo # build problems on ubuntu 12.10
     - picard
     - shrec
@@ -48,7 +47,6 @@ bio_nextgen:
     - grabix
     - mutect
     - tassel
-    - snpeff
     - stacks
     - varscan
   chip:
@@ -56,7 +54,6 @@ bio_nextgen:
   needs_64bit:
     - ucsc_tools
     - bfast
-    - plink_seq
 bio_proteomics:
   - transproteomic_pipeline
   - omssa

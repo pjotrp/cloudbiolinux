@@ -30,8 +30,8 @@ def _configure_and_install_native_packages(env, pkg_install):
         _setup_yum_sources()
         _yum_packages(pkg_install)
         _setup_yum_bashrc()
-    elif env.distribution == "arch":
-        pass  # No package support for Arch yet
+    elif env.distribution in ["arch", "suse"]:
+        pass  # No package support for Arch, SUSE yet
     elif env.distribution == "macosx":
         brew.install_packages(env, pkg_install)
     else:
@@ -64,8 +64,7 @@ def _get_shell_exports(env):
     ldlib_path = os.path.join(env.system_install, "lib")
     return {"path": "export PATH=%s:$PATH" % bin_dir,
             "ld_library": "export LD_LIBRARY_PATH=%s:$LD_LIBRARY_PATH" % ldlib_path,
-            "perl": ("export PERL5LIB=%s/lib/perl5:%s/lib/perl5/site_perl:${PERL5LIB}"
-                     % (env.system_install, env.system_install))}
+            "perl": "export PERL5LIB=%s/lib/perl5:${PERL5LIB}" % env.system_install}
 
 def _print_shell_exports(env):
     """Print a set of exports to add to shell in isolated installations.

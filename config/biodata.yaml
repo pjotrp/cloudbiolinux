@@ -12,7 +12,7 @@
 #    name    - descriptive name for the given genome (to be displayed in Galaxy, e.g., Hsapiens)
 #  Optional genome fields (corresponding to Galaxy's tool_data_table_conf.xml columns):
 #    formats, species, dbkey1, dbkey2, value, path, index
-#  Additional genome fields specific to data deployment: 
+#  Additional genome fields specific to data deployment:
 #    genome_indexes - list of tool indexes specific to the associated genome (overrides global 'genome_indexes')
 genomes:
   - dbkey: phix
@@ -21,8 +21,20 @@ genomes:
     name: Human (hg19)
     dbsnp: true
     rnaseq: true
+    annotations: [battenberg]
   - dbkey: GRCh37
     name: Human (GRCh37)
+    dbsnp: true
+    rnaseq: true
+    annotations: [battenberg]
+  - dbkey: hg38
+    name: Human (hg38) full
+    annotations: [dbsnp, clinvar, mills_indels, 1000g_snps, 1000g_indels, 1000g_omni_snps, hapmap_snps]
+  - dbkey: hg38-noalt
+    name: Human (hg38) without alternative alleles
+    annotations: [dbsnp, clinvar, mills_indels, 1000g_snps, 1000g_indels, 1000g_omni_snps, hapmap_snps]
+  - dbkey: mm9
+    name: Mouse (mm9)
     dbsnp: true
     rnaseq: true
   - dbkey: mm10
@@ -38,16 +50,18 @@ genomes:
     rnaseq: true
   - dbkey: dm3
     name: D melangogaster (dm3)
-  - dbkey: araTha_tair9
-    name: Arabidopsis thaliana (TAIR9)
+  - dbkey: TAIR10
+    name: Arabidopsis thaliana (TAIR10)
   - dbkey: xenTro3
     name: X tropicalis (xenTro3)
   - dbkey: Zv9
     name: Zebrafish (Zv9)
   - dbkey: sacCer3
     name: S cerevisiae (sacCer3)
-  - dbkey: WS210
-    name: C elegans (WS210)
+  - dbkey: WBcel235
+    name: C elegans (WBcel235)
+  - dbkey: pseudomonas_aeruginosa_ucbpp_pa14
+    name: Pseudomonas aeruginosa UCBPP-PA14
 
 # Global set of indexes to include for each genome.
 # Available choices are in GENOMES_INDEXES_SUPPORTED in cloudbio/biodata/genomes.py

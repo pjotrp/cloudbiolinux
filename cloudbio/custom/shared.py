@@ -30,9 +30,10 @@ def _if_not_installed(pname):
         def decorator(*args, **kwargs):
             if _galaxy_tool_install(args):
                 run_function = not _galaxy_tool_present(args)
+            elif isinstance(pname, list):
+                run_function = any([_executable_not_on_path(x) for x in pname])
             else:
                 run_function = _executable_not_on_path(pname)
-
             if run_function:
                 return func(*args, **kwargs)
         return decorator
@@ -71,9 +72,12 @@ def _if_not_python_lib(library):
 
         def decorator(*args, **kwargs):
             with settings(warn_only=True):
-                result = env.safe_run("%s -c 'import %s'" % (_python_cmd(env), library))
-            if result.failed:
+                errcount = int(env.safe_run_output("%s -c 'import %s' 2>&1 | grep -c ImportError | cat" % (_python_cmd(env), library)))
+                result = 0 if errcount >= 1 else 1
+            if result == 0:
                 return func(*args, **kwargs)
+            else:
+                return result
         return decorator
     return argcatcher
 
@@ -160,6 +164,9 @@ def _safe_dir_name(dir_name, need_dir=True):
             dirs = [x for x in dirs if "cannot access" not in x and "No such" not in x]
         if len(dirs) == 1 and dirs[0]:
             return dirs[0]
+    dirs = env.safe_run_output("find * -type d -maxdepth 0").split("\n")
+    if len(dirs) == 1 and dirs[0]:
+        return dirs[0]
     if need_dir:
         raise ValueError("Could not find directory %s" % dir_name)
 
@@ -172,7 +179,11 @@ def _remote_fetch(env, url, out_file=None, allow_fail=False, fix_fn=None, samedi
     if out_file is None:
         out_file = os.path.basename(url)
     if not env.safe_exists(out_file):
-        orig_dir = env.safe_run_output("pwd").strip()
+        if samedir and os.path.isabs(out_file):
+            orig_dir = os.path.dirname(out_file)
+            out_file = os.path.basename(out_file)
+        else:
+            orig_dir = env.safe_run_output("pwd").strip()
         temp_ext = "/%s" % uuid.uuid3(uuid.NAMESPACE_URL,
                                       str("file://%s/%s/%s" %
                                           (env.host, socket.gethostname(), out_file)))
@@ -188,6 +199,8 @@ def _remote_fetch(env, url, out_file=None, allow_fail=False, fix_fn=None, samedi
                     out_file = None
                 else:
                     raise IOError("Failure to retrieve remote file")
+        if samedir and out_file:
+            out_file = os.path.join(orig_dir, out_file)
     return out_file
 
 def _fetch_and_unpack(url, need_dir=True, dir_name=None, revision=None,
@@ -391,6 +404,8 @@ def _pip_cmd(env):
     raise ValueError("Could not find pip installer from: %s" % to_check)
 
 def _conda_cmd(env):
+    if hasattr(env, "conda_cmd") and env.conda_cmd:
+        return env.conda_cmd
     to_check = [os.path.join(env.system_install, "anaconda", "bin", "conda"), "conda"]
     for cmd in to_check:
         with quiet():
@@ -406,8 +421,11 @@ def _is_anaconda(env):
         conda = _conda_cmd(env)
         has_conda = conda and env.safe_run_output("%s -h" % conda).startswith("usage: conda")
     with quiet():
-        full_pip = env.safe_run_output("which %s" % _pip_cmd(env))
-    in_anaconda_dir = "/anaconda/" in full_pip
+        try:
+            full_pip = env.safe_run_output("which %s" % _pip_cmd(env))
+        except ValueError:
+            full_pip = None
+    in_anaconda_dir = full_pip and full_pip.succeeded and "/anaconda/" in full_pip
     return has_conda or in_anaconda_dir
 
 def _python_make(env):

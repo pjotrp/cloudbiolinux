@@ -11,6 +11,7 @@ minimal:
     - gcc-c++
     - gcc-gfortran
     - make
+    - patch
   util:
     - screen
     - unzip
@@ -24,6 +25,7 @@ libraries:
   - atlas-devel
   - blas
   - blas-devel
+  - bzip2
   - bzip2-devel
   - freetype-devel
   - gsl-devel
@@ -35,7 +37,6 @@ libraries:
   - ncurses-devel
   - libxml2-devel
   - zlib-devel
-  - netcdf-devel
 documentation:
 desktop:
   - gnome-panel
@@ -106,8 +107,6 @@ amazon:
 python:
   - python
   - python-devel
-  - python-pip
-  - python-virtualenv
   - boost-python-devel
   - numpy
 ruby:
@@ -117,21 +116,18 @@ ruby:
 r:
   - R
   - R-core
+  - R-core-devel
+  - R-java
   - libRmath
   - libRmath-devel
 perl: 
   - perl
-  - perl-ExtUtils-MakeMaker
-  - perl-ExtUtils-AutoInstall
-  - perl-ExtUtils-CBuilder
-  - perl-CPAN
+  - perl-devel
+  - perl-core
 java:
   - ant
-  - ant-junit
-  - ant-nodeps
   - java-1.7.0-openjdk
   - java-1.7.0-openjdk-devel
-  - junit4
 erlang:
   - erlang
   # - erlang-devel  ## Not available, erlang seems to install quite a bit.
