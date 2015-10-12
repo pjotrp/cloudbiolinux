@@ -9,14 +9,21 @@ Note that the locale in the VM needs to be UTF8
 export LC_ALL=en_US.UTF-8
 ```
 
+and/or set it up with
+
+```sh
+dpkg-reconfigure locales
+```
+
 ## Install GNU Guix
 
 Install GNU Guix on a running Ubuntu/Debian VM, or your own machine
 
 ```sh
 apt-get install guile-2.0 libgcrypt-dev libsqlite3-dev libbz2-dev sqlite3
-mkdir guix && cd guix
 wget http://alpha.gnu.org/gnu/guix/guix-0.6.tar.gz
+tar xvzf guix-0.6.tar.gz
+cd guix-0.6
 ./configure PKG_CONFIG=true SQLITE3_LIBS="-lsqlite3"
 make
 make install
@@ -25,10 +32,9 @@ make install
 Now set up the users and dirs
 
 ```sh
-useradd guix-builder
 useradd -g guix-builder -G guix-builder -d /var/empty -s `which nologin` -c "Guix build user" --system guix-builder
 mkdir -p /gnu/store
-chown guix-builder.guix-builder /gnu/store
+chown guix-builder.guix-builder -R /gnu/store
 ```
 
 and start the daemon
