@@ -70,7 +70,9 @@ With the base install, boot the new system
 
     qemu-system-x86_64 -enable-kvm -redir tcp:2222::22 -hda hda.img
 
-and install ssh on the VM (it comes already on netinst)
+# Run CloudbioLinux over ssh
+
+Install ssh on the VM (it comes already on netinst)
 
     apt-get install openssh-server
 
@@ -107,7 +109,7 @@ in fabric - is this still true?).
 
 # KVM tips
 
-KVM is nice and powerful. It is used in many Cloud service providers.
+KVM is nice and powerful and used by many Cloud service providers.
 
 For fast performance, it pays to install on a raw (LVM) partition,
 get bridging sorted, and make sure hardware acceleration is in place.
